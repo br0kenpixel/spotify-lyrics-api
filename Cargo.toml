@@ -1,0 +1,8 @@
+[package]
+name = "spotify-lyrics-api"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+curl = "0.4.44"
+json = "0.12.4"
