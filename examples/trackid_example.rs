@@ -8,6 +8,6 @@ fn main() {
     let spotify: Spotify = Spotify::new(sp_dc);
     let track_id: SpotifyID = SpotifyID::from_id(track_id);
 
-    let lyrics: String = spotify.get_lyrics(&track_id).unwrap(); /* json */
-    println!("{lyrics}");
+    let lyrics = spotify.get_lyrics(&track_id).unwrap(); /* json */
+    println!("{lyrics:#?}");
 }

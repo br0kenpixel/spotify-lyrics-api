@@ -1,14 +1,21 @@
 #![allow(
     clippy::missing_panics_doc,
     clippy::manual_assert,
-    clippy::must_use_candidate
+    clippy::must_use_candidate,
+    unused,
+    dead_code,
+    non_snake_case
 )]
 
 use curl::easy::{Easy, List};
-use json::parse;
+use serde::Deserialize;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+mod lyrics_objs;
+pub use lyrics_objs::*;
+mod api_objs;
+use api_objs::*;
 
 const TOKEN_URL: &str =
     "https://open.spotify.com/get_access_token?reason=transport&productType=web_player";
@@ -50,13 +57,20 @@ impl Spotify {
         easy.url(TOKEN_URL).unwrap();
 
         let response = Self::get_response_string(&mut easy);
-        let response = parse(response.as_str()).expect("Invalid SP_DC");
-        if response["isAnonymous"].as_bool().unwrap() {
+        let response: TokenRequestResponse =
+            serde_json::from_str(&response).expect("Invalid SP_DC");
+        if response.isAnonymous {
             panic!("Invalid SP_DC");
         }
 
         Self {
-            token: String::from(response["accessToken"].as_str().unwrap()),
+            token: response.accessToken,
+        }
+    }
+
+    pub fn new_with_token(token: &str) -> Self {
+        Self {
+            token: token.to_owned(),
         }
     }
 
@@ -76,7 +90,7 @@ impl Spotify {
         String::from_utf8(buf).unwrap()
     }
 
-    pub fn get_lyrics(&self, track_id: &SpotifyID) -> Option<String> {
+    pub fn get_lyrics(&self, track_id: &SpotifyID) -> Option<LyricsData> {
         let mut easy = Easy::new();
         easy.custom_request("GET").unwrap();
 
@@ -98,9 +112,9 @@ impl Spotify {
             .unwrap();
 
         let response = Self::get_response_string(&mut easy);
-        let response = parse(response.as_str()).expect("Invalid SP_DC");
+        let response = serde_json::from_str(&response).unwrap();
 
-        Some(response.dump())
+        Some(response)
     }
 }
 
@@ -118,4 +132,33 @@ impl SpotifyID {
             id: slice.to_owned(),
         }
     }
+}
+
+pub fn fix_end_times(lyrics: &mut LyricsData) {
+    let mut lines = &lyrics.lyrics.lines;
+    let line_count = lines.len();
+    let mut new = Vec::new();
+
+    let mut i = 0;
+    loop {
+        let Some(mut first) = lines.get(i).cloned() else {
+            break;
+        };
+        let Some(second) = lines.get(i + 1).cloned() else {
+            break;
+        };
+
+        if second.words == "♪" || second.words.is_empty() {
+            first.endTimeMs = second.startTimeMs;
+            new.push(first);
+            i += 2;
+            continue;
+        }
+
+        new.push(first);
+        new.push(second);
+        i += 1;
+    }
+
+    lyrics.lyrics.lines = new;
 }
