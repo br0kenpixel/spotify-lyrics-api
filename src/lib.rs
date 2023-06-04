@@ -135,30 +135,28 @@ impl SpotifyID {
 }
 
 pub fn fix_end_times(lyrics: &mut LyricsData) {
-    let mut lines = &lyrics.lyrics.lines;
-    let line_count = lines.len();
-    let mut new = Vec::new();
+    let mut lines = &mut lyrics.lyrics.lines;
+    let mut index = 0;
 
-    let mut i = 0;
+    let mut index = 0;
     loop {
-        let Some(mut first) = lines.get(i).cloned() else {
-            break;
-        };
-        let Some(second) = lines.get(i + 1).cloned() else {
-            break;
-        };
+        let mut new_end = None;
+        {
+            let Some(second) = lines.get(index + 1) else {
+                break;
+            };
 
-        if second.words == "♪" || second.words.is_empty() {
-            first.endTimeMs = second.startTimeMs;
-            new.push(first);
-            i += 2;
+            if second.words == "♪" || second.words.is_empty() {
+                new_end = Some(second.startTimeMs);
+            }
+        }
+
+        if let Some(new_end) = new_end {
+            lines.get_mut(index).unwrap().endTimeMs = new_end;
+            lines.remove(index + 1);
             continue;
         }
 
-        new.push(first);
-        new.push(second);
-        i += 1;
+        index += 1;
     }
-
-    lyrics.lyrics.lines = new;
 }
